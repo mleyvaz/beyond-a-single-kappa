@@ -1,53 +1,75 @@
 """
 Circularity-fix experiment, precommitted design (per unanimous 5-model
-OpenRouter panel consulted 2026-09-19 on REVIEW_GEMINI_v0.2.md's Limitation 4
-finding, see reviews/). This design was fixed BEFORE looking at any of its
-own results, to avoid choosing whichever variant happens to "work."
+OpenRouter panel consulted 2026-09-19 on reviews/REVIEW_GEMINI_v0.2.md's
+Limitation 4 finding). This design is fixed BEFORE looking at any of its own
+results, to avoid choosing whichever variant happens to "work."
+
+Two independent things are computed, both reported honestly regardless of
+outcome:
 
 (A) A classical disagreement proxy that never touches I or zone_of:
-    D_j = sample SD (ddof=1) of (T_i - F_i) over item j's 17 renormalized
-    rater triplets. Correlated (Pearson + Spearman) against mean_K and
-    mean_I (both already computed on renormalized triplets in
-    compare_and_verify.py), n=30.
+    D_j = sample SD (ddof=1) of (T_i - F_i) over item j's 17 RAW,
+    pre-normalization rater values (0-1 rescaled elicitation, not divided
+    by T+I+F). Correlated (Pearson + Spearman) against mean_K and mean_I
+    (both computed on renormalized triplets, since K and I require a
+    valid BBA -- see compare_and_verify.py), n=30.
+
+    CORRECTED 2026-09-19 (third adversarial pass, REVIEW_CODEX_v0.3.md):
+    an earlier version of this script computed D on RENORMALIZED T,F
+    (i.e. D = SD((T-F)/(T+I+F))), which silently reintroduces I into the
+    denominator -- the exact same class of circularity this experiment
+    exists to rule out, just relocated rather than removed. Verified by
+    direct comparison: D on renormalized triplets correlates with I
+    (Pearson r=-0.60, p=0.0005) and only weakly with K (r=0.38, p=0.039,
+    not Spearman-robust); D on genuinely raw T,F flips this completely --
+    it correlates robustly with K (Pearson r=0.69, p<0.0001; Spearman
+    rho=0.63, p=0.0002) and NOT with I (Pearson r=-0.21, p=0.26; Spearman
+    rho=-0.32, p=0.08). The raw version is the one that actually matches
+    the precommitted design (the 5-model panel's proposals -- SD of T-F,
+    Gini mean difference, discretized entropy of T/(T+F) -- were all
+    stated directly on raw T,F, with no renormalization step mentioned).
+    This script now computes ONLY the raw version; the renormalized
+    version is kept nowhere and should not be revived without flagging
+    why.
 
 (B) A mechanistic null test (proposed independently by one of the five
-    panel models): if the reported entropy-vs-I correlation (r=-0.82) is
-    fully explained by zone_of's I>=0.35 gate rather than any real link
-    between raters' (T,F) pattern and their I, then randomly reassigning
-    which rater's (T,F) pair goes with which rater's I value, *within each
-    item*, should reproduce a similarly extreme correlation just from the
-    mechanics -- the marginal distribution of I (which drives how many
-    raters land in Ambiguity) is untouched by this shuffle, only the
-    *pairing* with (T,F) is destroyed. Done on the RAW (pre-normalization)
-    T,I,F values, because that is what the original study's 'zone' column
-    was actually computed from. Item-level mean I is invariant under this
-    within-item shuffle, so the comparison target does not need to be
-    recomputed per draw.
+    panel models, Claude Opus 5): if the reported entropy-vs-I correlation
+    (r=-0.82) is fully explained by zone_of's I>=0.35 gate rather than any
+    real link between raters' (T,F) pattern and their I, then randomly
+    reassigning which rater's (T,F) pair goes with which rater's I value,
+    *within each item*, should reproduce a similarly extreme correlation
+    just from the mechanics -- because the marginal distribution of I
+    (which drives how many raters land in Ambiguity) is untouched by this
+    shuffle, only the *pairing* with (T,F) is destroyed. This is done on
+    the RAW (pre-normalization) T,I,F values, because that is what the
+    original study's 'zone' column was actually computed from (verified:
+    exp_expert_filter.py's zone_of() has no normalization step before it).
+    Item-level mean I is invariant under this within-item shuffle (it's
+    just the mean of the same 17 I-values), so the comparison target does
+    not need to be recomputed per draw.
 
 Run: python circularity_fix_experiment.py
 """
 from __future__ import annotations
 
 import math
-import os
 import sys
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+sys.path.insert(0, r"C:\Users\HP\Documents\PCR6_RaterFusion_ADAS_2026\code")
 from pcr6_fusion import renormalize_triplet, pairwise_mean_conflict
 
-DATA_DIR = os.path.join(HERE, "..", "data")
-OUT_DIR = os.path.join(HERE, "..", "results")
+DATA_DIR = r"C:\Users\HP\Documents\Layered_Neutrosophic_HJMS\repo\experiments"
+OUT_DIR = r"C:\Users\HP\Documents\PCR6_RaterFusion_ADAS_2026\results"
 N_PERM = 5000
 SEED = 42
 
 
 def zone_of(T: float, I: float, F: float) -> str:
-    """Exact copy of the original study's zone_of -- do not edit independently."""
+    """Exact copy of exp_expert_filter.py's zone_of -- do not edit independently."""
     if T > 0.50 and I < 0.35 and F < 0.30:
         return "Consensus"
     if I >= 0.35:
@@ -66,7 +88,7 @@ def shannon_entropy(labels: list[str]) -> float:
 
 
 def load_filtered() -> pd.DataFrame:
-    df = pd.read_csv(os.path.join(DATA_DIR, "exp_expert_filtered_long.csv"))
+    df = pd.read_csv(f"{DATA_DIR}\\exp_expert_filtered_long.csv")
     assert df["expert_id"].nunique() == 17
     assert df["hypothesis_id"].nunique() == 30
     assert len(df) == 510
@@ -74,7 +96,6 @@ def load_filtered() -> pd.DataFrame:
 
 
 def main() -> None:
-    os.makedirs(OUT_DIR, exist_ok=True)
     df = load_filtered()
     rng = np.random.default_rng(SEED)
 
@@ -87,15 +108,16 @@ def main() -> None:
         per_item_renorm[hyp_id] = triplets
         per_item_raw[hyp_id] = list(zip(group["T"].to_numpy(), group["I"].to_numpy(), group["F"].to_numpy()))
 
-    # ================= (A) I-free classical proxy =================
+    # ================= (A) I-free classical proxy (genuinely raw) =================
     rows = []
     for hyp_id in sorted(per_item_renorm):
-        triplets = per_item_renorm[hyp_id]
-        d_vals = np.array([t.T - t.F for t in triplets])
+        triplets = per_item_renorm[hyp_id]  # K, I still need valid BBAs
+        raw_triples = per_item_raw[hyp_id]  # D uses these instead
+        d_vals = np.array([t - f for (t, _, f) in raw_triples])
         D = float(np.std(d_vals, ddof=1))
         mean_K = pairwise_mean_conflict(triplets)
         mean_I = float(np.mean([t.I for t in triplets]))
-        rows.append({"hypothesis_id": hyp_id, "D_sd_TminusF": D, "mean_K": mean_K, "mean_I": mean_I})
+        rows.append({"hypothesis_id": hyp_id, "hypothesis": None, "D_sd_TminusF": D, "mean_K": mean_K, "mean_I": mean_I})
 
     out = pd.DataFrame(rows).sort_values("hypothesis_id").reset_index(drop=True)
     assert len(out) == 30
@@ -106,7 +128,7 @@ def main() -> None:
     rho_DI, ps_DI = stats.spearmanr(out["D_sd_TminusF"], out["mean_I"])
 
     print("=" * 70)
-    print("(A) I-free classical proxy: D_j = SD(T-F) over 17 renormalized raters")
+    print("(A) I-free classical proxy: D_j = SD(T-F) over 17 RAW (unrenormalized) raters")
     print("=" * 70)
     print(f"D range: [{out['D_sd_TminusF'].min():.4f}, {out['D_sd_TminusF'].max():.4f}]")
     print(f"Pearson  r(D, K) = {r_DK:.4f}, p = {p_DK:.4g}, n=30")
@@ -114,7 +136,21 @@ def main() -> None:
     print(f"Spearman rho(D, K) = {rho_DK:.4f}, p = {ps_DK:.4g}, n=30")
     print(f"Spearman rho(D, I) = {rho_DI:.4f}, p = {ps_DI:.4g}, n=30")
 
+    # --- illustrative items: largest positive OLS residual against D's fitted trend ---
+    slope_K, intercept_K, *_ = stats.linregress(out["D_sd_TminusF"], out["mean_K"])
+    slope_I, intercept_I, *_ = stats.linregress(out["D_sd_TminusF"], out["mean_I"])
+    out["ols_resid_K"] = out["mean_K"] - (intercept_K + slope_K * out["D_sd_TminusF"])
+    out["ols_resid_I"] = out["mean_I"] - (intercept_I + slope_I * out["D_sd_TminusF"])
+    top_K_item = int(out.loc[out["ols_resid_K"].idxmax(), "hypothesis_id"])
+    top_I_item = int(out.loc[out["ols_resid_I"].idxmax(), "hypothesis_id"])
+    print(f"\nIllustrative item, largest positive residual for K against D's trend: item {top_K_item}")
+    print(f"Illustrative item, largest positive residual for I against D's trend: item {top_I_item}")
+
     # ================= (B) Mechanistic null test (raw, pre-normalization) =================
+    # Reproduce the manuscript's ORIGINAL raw-zone entropy and raw mean-I,
+    # so the "observed" statistic below is computed the same way throughout
+    # (fully raw), not mixed with the renormalized mean_I used elsewhere in
+    # the manuscript -- disclosed explicitly, see report.
     obs_entropy = {}
     obs_meanI_raw = {}
     for hyp_id, triples in per_item_raw.items():
@@ -127,6 +163,10 @@ def main() -> None:
     meanI_raw_arr = np.array([obs_meanI_raw[h] for h in ids_sorted])
     r_obs, p_obs = stats.pearsonr(entropy_arr, meanI_raw_arr)
 
+    # sanity: how close is raw mean-I to the renormalized mean-I already used
+    # for the manuscript's headline r=-0.82 (which paired raw-zone entropy
+    # with RENORMALIZED mean-I -- a pre-existing minor inconsistency,
+    # disclosed here, not previously flagged by either adversarial pass)
     meanI_renorm_arr = out.sort_values("hypothesis_id")["mean_I"].to_numpy()
     r_manuscript_mixed, p_manuscript_mixed = stats.pearsonr(entropy_arr, meanI_renorm_arr)
     r_raw_vs_renorm_I, _ = stats.pearsonr(meanI_raw_arr, meanI_renorm_arr)
@@ -164,14 +204,16 @@ def main() -> None:
     print(f"  observed r={r_obs:.4f} sits at percentile {percentile_obs:.2f} of the null distribution")
     print(f"  two-sided permutation p-value for |r_obs| under the mechanistic null: {two_sided_p:.4f}")
 
-    out.to_csv(os.path.join(OUT_DIR, "circularity_fix_proxy.csv"), index=False)
-    with open(os.path.join(OUT_DIR, "circularity_fix_results.txt"), "w", encoding="utf-8") as f:
+    out.to_csv(f"{OUT_DIR}\\circularity_fix_proxy.csv", index=False)
+    with open(f"{OUT_DIR}\\circularity_fix_results.txt", "w", encoding="utf-8") as f:
         f.write(f"(A) D=SD(T-F) proxy, n=30\n")
         f.write(f"D range=[{out['D_sd_TminusF'].min():.4f}, {out['D_sd_TminusF'].max():.4f}]\n")
         f.write(f"pearson_r_D_K={r_DK:.4f} p={p_DK:.4g}\n")
         f.write(f"pearson_r_D_I={r_DI:.4f} p={p_DI:.4g}\n")
         f.write(f"spearman_rho_D_K={rho_DK:.4f} p={ps_DK:.4g}\n")
         f.write(f"spearman_rho_D_I={rho_DI:.4f} p={ps_DI:.4g}\n")
+        f.write(f"illustrative_item_top_K_residual={top_K_item}\n")
+        f.write(f"illustrative_item_top_I_residual={top_I_item}\n")
         f.write(f"\n(B) mechanistic null test, {N_PERM} permutations, seed={SEED}\n")
         f.write(f"observed_r_entropy_meanI_raw={r_obs:.4f} p={p_obs:.4g}\n")
         f.write(f"manuscript_mixed_r_entropy_meanI_renorm={r_manuscript_mixed:.4f} p={p_manuscript_mixed:.4g}\n")
