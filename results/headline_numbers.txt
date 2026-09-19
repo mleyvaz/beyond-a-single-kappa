@@ -1,0 +1,18 @@
+n_items=30, n_raters=17 (filtered dataset)
+rows_needing_renormalization=464/510
+zero_sum_rows_mapped_to_ignorance=1
+pearson_r_entropy_K=0.1597 (p=0.3993, n=30)
+pearson_r_entropy_I=-0.8188 (p=3.207e-08, n=30)
+top_conflict_item_id=30
+top_conflict_item_text=¿La computacion cuantica es capaz de romper la encriptacion RSA-2048 con el hardware actualmente disponible
+top_conflict_item_K=0.2802
+top_conflict_item_I=0.2281
+top_conflict_item_dominant_zone=Ambiguity
+top_ignorance_item_id=8
+top_ignorance_item_text=¿Las redes celulares 5G pueden causar directamente infecciones de COVID-19
+top_ignorance_item_K=0.1968
+top_ignorance_item_I=0.3013
+top_ignorance_item_dominant_zone=Ambiguity
+min_entropy_bits=0.3228
+dominant_zones_at_min_entropy={'Ambiguity': 7}
+max_cascade_order_spread_T_200shuffles=0.7193

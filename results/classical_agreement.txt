@@ -1,0 +1,5 @@
+Items: 30
+Raters (unfiltered): 22, rows: 660
+Raters (filtered):   17, rows: 510
+Fleiss kappa (unfiltered, zone categories): 0.0589
+Fleiss kappa (filtered,   zone categories): 0.1755

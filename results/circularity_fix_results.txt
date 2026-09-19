@@ -1,0 +1,15 @@
+(A) D=SD(T-F) proxy, n=30
+D range=[0.1962, 0.6324]
+pearson_r_D_K=0.3779 p=0.03949
+pearson_r_D_I=-0.5975 p=0.0004894
+spearman_rho_D_K=0.2187 p=0.2456
+spearman_rho_D_I=-0.7273 p=5.301e-06
+
+(B) mechanistic null test, 5000 permutations, seed=42
+observed_r_entropy_meanI_raw=-0.8420 p=5.474e-09
+manuscript_mixed_r_entropy_meanI_renorm=-0.8187 p=3.219e-08
+raw_vs_renorm_I_correlation=0.9654 max_abs_diff=0.2675
+null_mean=-0.9199 null_sd=0.0115
+null_5th_pct=-0.9367 null_95th_pct=-0.8993
+observed_percentile_in_null=100.00
+two_sided_permutation_p=1.0000
