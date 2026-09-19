@@ -31,9 +31,9 @@ This manuscript went through two independent adversarial reviews (`reviews/REVIE
 To resolve this, five independent LLMs (via OpenRouter — GPT-6 Astra Pro, Claude Opus 5, Gemini 3.1 Pro, Grok 4.6, DeepSeek V4 Pro) were consulted on how to fix it; all five independently recommended building a classical disagreement proxy that never touches `I` or the zone rule. `code/circularity_fix_experiment.py` implements the resulting precommitted design:
 
 - **A mechanistic null test** confirming the original entropy–ignorance correlation is fully explained by the zone rule's mechanics (observed r=-0.842 sits at the 100th percentile of a null distribution built from 5,000 within-item reshuffles of the (T,F)↔I pairing; two-sided permutation p=1.00).
-- **A replacement, I-free proxy** (`D = SD(T-F)` per item): ignorance still correlates with it, more modestly and robustly (Pearson r=-0.60, p=0.0005; Spearman ρ=-0.73, p<0.0001), while conflict's association becomes fragile (Pearson r=0.38, p=0.039; Spearman ρ=0.22, p=0.25 — not robust across estimators).
+- **A replacement, I-free proxy** (`D = SD(T-F)` per item, computed on **raw, unrenormalized** T,F). A second self-check caught a subtler version of the same problem: an earlier implementation of this proxy divided by `T+I+F` before computing D, silently reintroducing `I` through the denominator. On genuinely raw values the result is not just different but reversed — conjunctive conflict `K` correlates with `D` robustly (Pearson r=0.69, p<0.001; Spearman ρ=0.63, p<0.001), while ignorance `I` shows no significant association under either estimator (Pearson r=-0.21, p=0.26; Spearman ρ=-0.32, p=0.08).
 
-Every number above is produced by the scripts in this repository, not asserted from memory.
+Every number above is produced by the scripts in this repository, not asserted from memory. `code/circularity_fix_experiment.py`'s module docstring documents both the before/after numbers and why the renormalized version was wrong, for anyone tempted to "fix" it back.
 
 ## Repository layout
 
@@ -42,7 +42,8 @@ code/
   pcr6_fusion.py                 # DSmT PCR5/PCR6 (two-source) fusion + N-source cascade with order-sensitivity check
   classical_agreement.py         # Fleiss' kappa on the zone categories (unfiltered/filtered cross-check)
   compare_and_verify.py          # Per-item K / I vs. zone-entropy comparison, with assert-based number verification
-  circularity_fix_experiment.py  # The I-free proxy (A) and the mechanistic null test (B) described above
+  circularity_fix_experiment.py  # The I-free proxy (A, raw T,F) and the mechanistic null test (B) described above
+  item_selection_D_based.py      # Confirms the manuscript's two illustrative items (30, 21) against the raw D trend
 
 data/
   exp_expert_long.csv            # 22 raters x 30 items, unfiltered (660 rows)
@@ -52,12 +53,14 @@ results/
   classical_agreement.txt        # Fleiss' kappa output
   item_comparison.csv            # Per-item K, I, zone entropy, PCR6 cascade order-sensitivity stats
   headline_numbers.txt           # Every number quoted in the manuscript's Sections 3-4
-  circularity_fix_proxy.csv      # Per-item D=SD(T-F), K, I
+  circularity_fix_proxy.csv      # Per-item D=SD(T-F) (raw), K, I
   circularity_fix_results.txt    # Full circularity-fix experiment output (proxy correlations + null test)
+  item_selection_D_based.csv/.txt # Illustrative-item OLS residuals against raw D
 
 reviews/
   REVIEW_CODEX_v0.1.md           # First adversarial review (Codex CLI), 12 findings
-  REVIEW_GEMINI_v0.2.md          # Second, independent adversarial review (Gemini CLI) -- found the circularity issue
+  REVIEW_GEMINI_v0.2.md          # Second, independent adversarial review (Gemini CLI) -- found the entropy-proxy circularity
+  REVIEW_CODEX_v0.3.md           # Third adversarial review (Codex CLI) -- found the D-proxy renormalization circularity
 ```
 
 ## How to reproduce
@@ -68,9 +71,10 @@ cd code
 python classical_agreement.py
 python compare_and_verify.py
 python circularity_fix_experiment.py
+python item_selection_D_based.py
 ```
 
-All three scripts are self-contained (relative paths only) and write their outputs to `../results/`. `circularity_fix_experiment.py` uses a fixed random seed (`SEED = 42`) for its 5,000-draw permutation test, so its output is exactly reproducible.
+All scripts are self-contained (relative paths only) and write their outputs to `../results/`. `circularity_fix_experiment.py` uses a fixed random seed (`SEED = 42`) for its 5,000-draw permutation test, so its output is exactly reproducible.
 
 ## License
 
